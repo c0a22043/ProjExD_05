@@ -8,6 +8,17 @@ OCTO_CAT_VELOCITY = 4
 OCTO_CAT_JUMP = 20
 COLORS = [[255,0,0],[255,165,0],[255,255,0],[0,255,0],[0,255,255],[0,0,255],[128,0,128]]
 
+BGM_FILES = ["ex05/fig/BGM.mp3",
+             "ex05/fig/baadakkuman.mp3",
+             "ex05/fig/kessen.mp3",
+             "ex05/fig/ajito.mp3",
+             "ex05/fig/maou-kessen.mp3"
+             ]
+CURRENT_BGM_INDEX = 0  # 現在のBGMのインデックス
+
+# 別のBGMファイルが再生中かどうかを示すフラグ
+is_bgm_playing = False
+
 pygame.init()      
 screen = pygame.display.set_mode((640, 480)) 
 pygame.display.set_caption("Jump the Rope") 
@@ -134,12 +145,19 @@ class Shooting_Star(Rope):
         else:
             return False
 
+pygame.mixer.music.stop()
+
 def open():
     endFlag = False
     font1 = pygame.font.SysFont(None, 80)
     text1 = font1.render("Jump the Rope", False, (255,255,255))
     font2 = pygame.font.SysFont(None, 40)
     text2 = font1.render("Press Any Key to Start", False, (255,255,255))
+
+    # 開始BGMを再生
+    pygame.mixer.music.load('ex05/fig/jokyoku.mp3')  # 開始BGMのファイル名に置き換える
+    pygame.mixer.music.set_volume(0.2)
+    pygame.mixer.music.play(-1)  # -1を渡すと無限ループ再生
 
     while endFlag == False:
         screen.fill((0,0,0))
@@ -150,14 +168,30 @@ def open():
             if event.type == pygame.QUIT:  
                 endFlag = True
             elif event.type == pygame.KEYDOWN:
+                pygame.mixer.music.stop()
                 endFlag = True
                 main()
 
+
+def play_game_over_music():
+    pygame.mixer.music.stop()  # すべてのBGMを停止
+    game_over_sound = pygame.mixer.Sound('ex05/fig/dead.wav')
+    game_over_sound.set_volume(0.2)
+    game_over_sound.play()
+
+
 def main():
+    global is_bgm_playing, CURRENT_BGM_INDEX
     endFlag = False
     octo_cat = Octo_Cat(400,400)
     time_elapsed = 0
     force_quit = False
+    pygame.mixer.init()
+    # ゲーム開始時に最初のBGMを再生
+    pygame.mixer.music.load(BGM_FILES[CURRENT_BGM_INDEX])
+    pygame.mixer.music.set_volume(0.2)
+    pygame.mixer.music.play(-1)
+    is_bgm_playing = True
 
     ropes = []
 
@@ -170,9 +204,22 @@ def main():
             if event.type == pygame.QUIT:  
                 endFlag = True
                 force_quit = True
-            else:
-                octo_cat.update(event)
+            octo_cat.update(event)
 
+        # キーボード入力を処理
+        keys = pygame.key.get_pressed()
+
+        if keys[pygame.K_TAB]:
+            if not is_bgm_playing:
+                pygame.mixer.music.stop()  # 現在のBGMを停止
+                CURRENT_BGM_INDEX = (CURRENT_BGM_INDEX + 1) % len(BGM_FILES)  # 次のBGMに切り替え
+                pygame.mixer.music.load(BGM_FILES[CURRENT_BGM_INDEX])  # 新しいBGMを読み込み
+                pygame.mixer.music.set_volume(0.2)
+                pygame.mixer.music.play(-1)  # -1を渡すと無限ループ再生
+                is_bgm_playing = True
+        else:
+            is_bgm_playing = False
+       
         #move the player
         if octo_cat.move_right == True:
             if octo_cat.x < 620:
@@ -236,6 +283,7 @@ def main():
                     octo_cat.life -= 1
                     if octo_cat.life == 0:
                         endFlag = True
+
             if not octo_cat.right_shift_pressed:  # 右シフトが押されていない場合にのみ判定
                 for rope in ropes:
                     if(rope.judge(octo_cat) == True) and (octo_cat.life_lost_time + 30 < time_elapsed):
@@ -248,10 +296,19 @@ def main():
                 octo_cat.life += 1
                 if octo_cat.life > 4:  # ライフが上限を超えないようにする
                     octo_cat.life = 4
+
+        if octo_cat.life == 0:
+            endFlag = True
+            play_game_over_music() 
+            if pygame.mixer.music.get_busy():
+                pygame.mixer.music.stop()  # ゲームオーバー時にBGMを停止
+ # ゲームオーバー音楽を再生
+
+
         for i in range(octo_cat.life - 1):
             screen.blit(heart_image,(i * 30,50))
         pygame.display.update()
-    quit(time_elapsed,force_quit) 
+    quit(time_elapsed,force_quit)
 
 #when quitting the game
 def quit(score,force_quit):
